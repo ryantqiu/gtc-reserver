@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from selenium import webdriver
 from enum import Enum
 
 
@@ -18,3 +19,12 @@ class Reservation():
     date: str
     time: str
     length: ReservationLength
+
+@dataclass
+class ReservationWorkerConfig():
+    username: str
+    password: str
+    reservation: str
+    webdriver_options: webdriver.IeOptions
+    reservation_start_hour: int = 12
+    reservation_start_minute: int = 30

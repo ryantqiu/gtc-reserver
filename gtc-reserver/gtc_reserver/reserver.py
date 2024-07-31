@@ -1,6 +1,5 @@
-from dataclasses import dataclass
 import threading
-from gtc_reserver.model import CourtType, Reservation, ReservationLength
+from gtc_reserver.model import CourtType, ReservationLength, ReservationWorkerConfig
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -12,26 +11,30 @@ RESERVATION_START_HOUR = 12
 RESERVATION_START_MINUTE = 30
 
 class ReserverWorker(threading.Thread):
-    def __init__(self, username: str, password: str, reservation: Reservation, webdriver_options):
+    def __init__(self, config: ReservationWorkerConfig):
         super().__init__()
-        self.username = username
-        self.password = password
-        self.reservation = reservation
-        self.driver = webdriver.Chrome(options=webdriver_options)
+        self.username = config.username
+        self.password = config.password
+        self.reservation = config.reservation
+        self.driver = webdriver.Chrome(options=config.webdriver_options)
+        self.reservation_start_hour = config.reservation_start_hour
+        self.reservation_start_minute = config.reservation_start_minute
 
     def run(self):
         login(self.driver, self.username, self.password)
         navigate_to_reservation_page(self.driver)
         input_reservation_info(self.driver, self.reservation.date, self.reservation.length, self.reservation.court_type)
-        pause_until(RESERVATION_START_HOUR, RESERVATION_START_MINUTE, disabled=True)
+        pause_until(self.reservation_start_hour, self.reservation_start_minute, disabled=False)
         search_reservation_times(self.driver)
-        select_reservation(self.driver, self.reservation.time)
-        time.sleep(20)
+        lock_in_reservation(self.driver, self.reservation.time)
+
+        # uncomment for verifying in non-headless mode
+        # time.sleep(20)
         # Close the WebDriver
         self.driver.quit()
 
 def login(driver: webdriver, username: str, password: str):
-    print("attempting to log in...")
+    print('attempting to log in...')
 
     driver.get("https://gtc.clubautomation.com/")
 
@@ -42,17 +45,17 @@ def login(driver: webdriver, username: str, password: str):
     password_field.send_keys(password)
     driver.find_element(By.ID, "loginButton").click()
     
-    print("login completed")
+    print('login completed')
 
 def navigate_to_reservation_page(driver: webdriver):
-    print("navigating to reservations page...")
+    print('navigating to reservations page...')
     # Go to reserve a court page
     driver.get("https://gtc.clubautomation.com/member/index")
     wait = WebDriverWait(driver, timeout=10)
     wait.until(lambda d : driver.find_element(By.LINK_TEXT, "Reserve a Court").is_displayed())
     reserve_a_court_button = driver.find_element(By.LINK_TEXT, "Reserve a Court")
     reserve_a_court_button.click()
-    print("navigated to reservations page")
+    print('navigated to reservations page')
 
 def input_reservation_info(driver: webdriver, date: str, length: ReservationLength, court_type: CourtType):
     select_court_type(driver, court_type)  
@@ -81,50 +84,50 @@ def select_court_type(driver: webdriver, court_type: CourtType):
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH,f"//li[text()='{court_type.value}']"))).click()
 
 def input_date(driver: webdriver, date: str):
-    print("inputing target date...")
+    print('inputing target date...')
     
     date_selector = driver.find_element(By.ID, "date")
     date_selector.clear()
     date_selector.send_keys(date)
 
-    print("inputed target date")
+    print('inputed target date')
 
 def set_search_time_range(driver: webdriver):
-    print("setting time interval to look for reservations...")
+    print('setting time interval to look for reservations...')
 
     # Set search interval to all times, from 12:00am to 12:00am
     start_time_dropdown = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "timeFrom_chosen")))
     start_time_dropdown.click()
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.CLASS_NAME, "active-result"))).click()
 
-    print("setting time interval to look for reservations")
+    print('setting time interval to look for reservations')
 
 def set_reservation_length(driver: webdriver, length: ReservationLength):
-    print("selecting reservation length...")
+    print('selecting reservation length...')
     
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH,f"//span[text()='{length.value["button_text"]}']"))).click()
 
-    print("selected reservation length")
+    print('selected reservation length')
 
 def search_reservation_times(driver: webdriver):
-    print("searching for reservable slots...")
+    print('searching for reservable slots...')
 
     search_button = driver.find_element(By.NAME, "reserve-court-search")
     wait = WebDriverWait(driver, timeout=10000)
     wait.until(lambda d : search_button.is_displayed())
     search_button.click()
 
-    print("searched for reservable slots")
+    print('searched for reservable slots')
 
-def select_reservation(driver: webdriver, time: str):
-    print("selecting and confirming reservation...")
+def lock_in_reservation(driver: webdriver, time: str):
+    print('selecting and confirming reservation...')
 
     # Complete reservation
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.LINK_TEXT, time))).click()
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "confirm"))).click()
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "button-ok"))).click()
 
-    print("selected and confirmed reservation!")
+    print('selected and confirmed reservation!')
 
 def print_all_ids(driver: webdriver):
     ids = driver.find_elements(By.XPATH, '//*[@id]')
