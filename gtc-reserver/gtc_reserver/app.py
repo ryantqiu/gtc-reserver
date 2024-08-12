@@ -12,19 +12,22 @@ def main():
     for username, password in accounts.items():
         options = webdriver.ChromeOptions()
         # Enable headless mode
-        options.add_argument("--headless=new")
-        reservation = Reservation(
-            CourtType.TENNIS, 
-            "08/05/2024", 
-            "7:00pm", 
-            ReservationLength.NINETY)
+        # options.add_argument("--headless=new")
+        reservation = Reservation( # TODO: Deserialized this from a file; will probably make it easier in the future to accept it as a http request?
+            court_type=CourtType.TENNIS,
+            acceptableTimes={
+                ReservationLength.NINETY: ["7:00pm", "7:30pm"],
+                ReservationLength.SIXTY: ["7:00pm", "7:30pm"]
+            },
+            date="08/16/2024"
+        )
         config = ReservationWorkerConfig(
-            username,
-            password,
-            reservation,
-            options,
-            # 20,
-            # 17
+            username=username,
+            password=password,
+            reservation=reservation,
+            webdriver_options=options,
+            reservation_start_hour=12,
+            reservation_start_minute=30
         )
         
         worker = ReserverWorker(config)
@@ -32,6 +35,7 @@ def main():
         worker.start()
 
     while len(threads) > 0:
+        # TODO: if worker exits before 12:30, we can assume the thread exited with an error and we should retry it.
         username, worker = threads.pop(0)
         if worker.is_alive():
             threads.append((username, worker))

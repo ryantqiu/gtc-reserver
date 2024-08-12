@@ -17,14 +17,14 @@ class CourtType(Enum):
 class Reservation():
     court_type: CourtType
     date: str
-    time: str
-    length: ReservationLength
+    acceptableTimes: dict[ReservationLength, list[str]]
+    lengthPreferences = [ReservationLength.NINETY, ReservationLength.SIXTY, ReservationLength.FIFTY, ReservationLength.THIRTY]
 
 @dataclass
 class ReservationWorkerConfig():
     username: str
     password: str
-    reservation: str
+    reservation: Reservation
     webdriver_options: webdriver.IeOptions
     reservation_start_hour: int = 12
     reservation_start_minute: int = 30
